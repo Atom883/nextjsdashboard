@@ -2,6 +2,8 @@ import bcrypt from 'bcrypt';
 import postgres from 'postgres';
 import { invoices, customers, revenue, users } from '../lib/placeholder-data';
 
+console.log('POSTGRES_URL:', process.env.POSTGRES_URL);
+
 const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
 
 async function seedUsers() {
@@ -103,15 +105,51 @@ async function seedRevenue() {
 
 export async function GET() {
   try {
-    const result = await sql.begin((sql) => [
-      seedUsers(),
-      seedCustomers(),
-      seedInvoices(),
-      seedRevenue(),
-    ]);
+    console.log("Starting seeding...");
 
+    const result = await sql.begin(async (sql) => {
+      console.log("Seeding users...");
+      await seedUsers();
+
+      console.log("Seeding customers...");
+      await seedCustomers();
+
+      console.log("Seeding invoices...");
+      await seedInvoices();
+
+      console.log("Seeding revenue...");
+      await seedRevenue();
+    });
+
+    console.log("Seeding completed successfully.");
     return Response.json({ message: 'Database seeded successfully' });
   } catch (error) {
-    return Response.json({ error }, { status: 500 });
+    if (error instanceof AggregateError) {
+      console.error("AggregateError details:");
+      for (const err of error.errors) {
+        console.error(err);
+      }
+    } else {
+      console.error("Seeding failed with error:", error);
+    }
+    return Response.json({ error: String(error) }, { status: 500 });
   }
+  
 }
+
+
+// export async function GET() {
+//   try {
+//     const result = await sql.begin((sql) => [
+//       seedUsers(),
+//       seedCustomers(),
+//       seedInvoices(),
+//       seedRevenue(),
+//     ]);
+
+//     return Response.json({ message: 'Database seeded successfully' });
+//   } catch (error) {
+
+//     return Response.json({ error }, { status: 500 });
+//   }
+// }
